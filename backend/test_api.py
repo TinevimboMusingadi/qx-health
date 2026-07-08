@@ -1,41 +1,54 @@
-# test_api.py
-import httpx
-import sys
-import wave
+import requests
 import time
 
-# Generate a dummy 1-second 16kHz mono audio file
-def create_dummy_wav(filename):
-    with wave.open(filename, 'w') as f:
-        f.setnchannels(1)
-        f.setsampwidth(2)
-        f.setframerate(16000)
-        f.writeframes(b'\x00\x00' * 16000)
+API_URL = "http://127.0.0.1:8000/predict"
 
-create_dummy_wav('dummy_audio.wav')
+def test_api():
+    print(f"Sending mock data to {API_URL}...")
+    
+    # Send all 9 features precisely + model_id
+    data = {
+        "model_id": "exp4-encoder-free-unified",
+        "age": 45.0,
+        "gender": "male",
+        "tbContactHistory": True,
+        "wheezingHistory": False,
+        "phlegmCough": True,
+        "familyAsthmaHistory": False,
+        "feverHistory": True,
+        "coldPresent": False,
+        "packYears": 10.5
+    }
+    
+    # Create a 1-second dummy WAV file for testing
+    import wave
+    import struct
+    import math
 
-url = "http://127.0.0.1:8000/predict"
-print("Sending mock data to /predict...")
-
-max_retries = 10
-for i in range(max_retries):
-    try:
-        with open('dummy_audio.wav', 'rb') as f:
-            response = httpx.post(
-                url,
-                data={
-                    "age": 45,
-                    "gender": "male",
-                    "symptoms": "cough, fever"
-                },
-                files={"audio": ("dummy_audio.wav", f, "audio/wav")}
-            )
+    with wave.open("dummy_audio.wav", "w") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(16000)
+        # 1600 frames = 0.1 seconds (smaller test dummy)
+        for i in range(1600):
+            value = int(32767.0 * math.sin(2.0 * math.pi * 440.0 * i / 16000.0))
+            data_str = struct.pack("<h", value)
+            w.writeframesraw(data_str)
             
-        print(f"Status Code: {response.status_code}")
-        print("Response JSON:")
-        print(response.json())
-        break
-    except httpx.ConnectError:
-        print(f"Failed to connect (attempt {i+1}/{max_retries}). Server might still be downloading model weights...")
-        time.sleep(5)
+    # Send the test request
+    with open("dummy_audio.wav", "rb") as f:
+        files = {"audio": ("dummy_audio.wav", f, "audio/wav")}
+        
+        max_retries = 10
+        for i in range(max_retries):
+            try:
+                response = requests.post(API_URL, data=data, files=files)
+                print(f"Status Code: {response.status_code}")
+                print(f"Response JSON:\n{response.json()}")
+                break
+            except requests.exceptions.ConnectionError:
+                print(f"Server not ready yet, retrying in 5 seconds... ({i+1}/{max_retries})")
+                time.sleep(5)
 
+if __name__ == "__main__":
+    test_api()
