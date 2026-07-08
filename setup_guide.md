@@ -88,8 +88,8 @@ VITE_API_URL=https://airs-backend.onrender.com
 ```
 
 ### Backend (`backend/.env`)
-Currently, the backend does not require any environment variables. However, if you add Hugging Face Hub authentication to download models dynamically, you might need:
+The backend **requires** Hugging Face Hub authentication to dynamically download the private AIRS models. You must create a `.env` file locally and add this token in Render:
 ```env
 HF_TOKEN=your_hugging_face_read_token
 ```
-You would add this token in Render under **Environment > Environment Variables**.
+**Important for Render:** You MUST add this token in your Render Dashboard under **Environment > Environment Variables** for the deployment to succeed.
