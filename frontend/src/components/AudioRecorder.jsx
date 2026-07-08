@@ -30,6 +30,13 @@ const AudioRecorder = ({ onAudioReady }) => {
 
       mediaRecorderRef.current.start();
       setIsRecording(true);
+
+      // Automatically stop recording after 5 seconds to prevent massive files
+      setTimeout(() => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+          stopRecording();
+        }
+      }, 5000);
     } catch (error) {
       console.error('Error accessing microphone:', error);
       alert('Could not access microphone. Please ensure you have granted permission.');
