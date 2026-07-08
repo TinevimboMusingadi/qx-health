@@ -5,9 +5,16 @@ import DataForm from './components/DataForm';
 function App() {
   const [formData, setFormData] = useState({
     age: '',
-    gender: '',
-    symptoms: ''
+    gender: 'male',
+    tbContactHistory: false,
+    wheezingHistory: false,
+    phlegmCough: false,
+    familyAsthmaHistory: false,
+    feverHistory: false,
+    coldPresent: false,
+    packYears: ''
   });
+  const [modelId, setModelId] = useState('exp4-encoder-free-unified');
   const [audioBlob, setAudioBlob] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -26,8 +33,8 @@ function App() {
       setError('Please record an audio sample first.');
       return;
     }
-    if (!formData.age || !formData.gender) {
-      setError('Please fill out age and gender.');
+    if (formData.age === '') {
+      setError('Please fill out the patient age.');
       return;
     }
 
@@ -37,24 +44,32 @@ function App() {
     try {
       const submitData = new FormData();
       submitData.append('audio', audioBlob, 'recording.wav');
-      submitData.append('age', formData.age);
-      submitData.append('gender', formData.gender);
-      submitData.append('symptoms', formData.symptoms);
+      submitData.append('model_id', modelId);
+      
+      // Append all 9 features precisely
+      Object.keys(formData).forEach(key => {
+        submitData.append(key, formData[key]);
+      });
 
       const response = await fetch(`${API_URL}/predict`, {
         method: 'POST',
         body: submitData,
       });
 
+      const data = await response.json();
+      
       if (!response.ok) {
-        throw new Error('Network response was not ok');
+        throw new Error(data.error || 'Network response was not ok');
       }
 
-      const data = await response.json();
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
       setResult(data.prediction);
     } catch (err) {
       console.error(err);
-      setError('Failed to connect to the server. Is the API running?');
+      setError(err.message || 'Failed to connect to the server. Is the API running?');
     } finally {
       setIsLoading(false);
     }
@@ -76,12 +91,30 @@ function App() {
 
         <form onSubmit={handleSubmit}>
           <div className="card">
-            <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>1. Patient Data</h3>
+            <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>1. Model Selection</h3>
+            <div className="form-group">
+              <label htmlFor="model_id">Select Active Model Configuration</label>
+              <select
+                id="model_id"
+                value={modelId}
+                onChange={(e) => setModelId(e.target.value)}
+              >
+                <option value="exp4-encoder-free-unified">Exp 4: Encoder-Free Unified (Best Performance)</option>
+                <option value="exp1-tabular-attention">Exp 1: Tabular Attention (Clinical Only)</option>
+                <option value="exp2-acoustic-both">Exp 2: Acoustic Dual-Stream</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="card">
             <DataForm formData={formData} setFormData={setFormData} />
           </div>
 
           <div className="card">
-            <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>2. Respiratory Audio</h3>
+            <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>3. Respiratory Audio</h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+              Please record up to 5 seconds of the patient coughing.
+            </p>
             <AudioRecorder onAudioReady={handleAudioReady} />
           </div>
 
@@ -91,7 +124,7 @@ function App() {
             disabled={isLoading || !audioBlob}
             style={{ marginBottom: '2rem' }}
           >
-            {isLoading ? 'Analyzing...' : 'Analyze Data'}
+            {isLoading ? 'Analyzing Patient Data...' : 'Run Diagnostics'}
           </button>
         </form>
 
@@ -107,7 +140,7 @@ function App() {
               </span>
             </div>
             <div className="result-row">
-              <span className="result-label">Probability</span>
+              <span className="result-label">Disease Probability</span>
               <span className="result-value">{(result.disease_probability * 100).toFixed(1)}%</span>
             </div>
             <div className="result-row">
@@ -115,8 +148,12 @@ function App() {
               <span className="result-value">{result.confidence}</span>
             </div>
             <div className="result-row">
-              <span className="result-label">Model Engine</span>
+              <span className="result-label">Model Architecture</span>
               <span className="result-value" style={{ fontSize: '0.85rem' }}>{result.model_version}</span>
+            </div>
+            <div className="result-row">
+              <span className="result-label">Active Weights</span>
+              <span className="result-value" style={{ fontSize: '0.85rem' }}>{result.model_id}</span>
             </div>
           </div>
         )}
