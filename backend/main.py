@@ -193,9 +193,21 @@ async def predict(
                 # Fallback guess
                 logits = model(tab_features)
                 
-            probs = torch.nn.functional.softmax(logits, dim=-1)
-            # NUM_CLASSES = 3. Class 0: Healthy, 1: Disease A, 2: Disease B
-            prob_disease = (probs[0, 1] + probs[0, 2]).item()
+            probs = torch.nn.functional.softmax(logits, dim=-1)[0]
+            
+            # Map index to specific respiratory disease (AIRS dataset 3-class standard)
+            idx_to_disease = {
+                0: "Healthy (No Disease Detected)",
+                1: "Tuberculosis",
+                2: "Asthma / COPD"
+            }
+            
+            class_idx = torch.argmax(probs).item()
+            max_prob = probs[class_idx].item()
+            
+            # If healthy, prob_disease represents confidence in health. 
+            # If disease, it represents confidence in that specific disease.
+            predicted_diagnosis = idx_to_disease.get(class_idx, "Unknown")
 
     except Exception as e:
         if temp_filename and os.path.exists(temp_filename):
@@ -210,9 +222,9 @@ async def predict(
         "status": "success",
         "filename": audio.filename if audio else None,
         "prediction": {
-            "disease_probability": prob_disease,
-            "diagnosis": "Positive" if prob_disease > 0.5 else "Negative",
-            "confidence": "High" if max(prob_disease, 1 - prob_disease) > 0.8 else "Medium",
+            "disease_probability": max_prob,
+            "diagnosis": predicted_diagnosis,
+            "confidence": "High" if max_prob > 0.8 else "Medium",
             "model_version": config["model_class"],
             "model_id": model_id
         }
