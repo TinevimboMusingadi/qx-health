@@ -17,18 +17,18 @@ class TabularAttentionModel(nn.Module):
         self.feature_embed = nn.Linear(1, d_model)
         self.attn = nn.MultiheadAttention(embed_dim=d_model, num_heads=n_heads, dropout=dropout, batch_first=True)
         self.attn_norm = nn.LayerNorm(d_model)
-        self.classifier = nn.Sequential(
+        self.ff = nn.Sequential(
             nn.Linear(n_features * d_model, 256), nn.GELU(), nn.Dropout(dropout),
             nn.Linear(256, 64), nn.GELU(), nn.Dropout(dropout),
-            nn.Linear(64, n_classes),
         )
+        self.classifier = nn.Linear(64, n_classes)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, N = x.shape
         tokens = self.feature_embed(x.unsqueeze(-1))
         attn_out, _ = self.attn(tokens, tokens, tokens)
         tokens = self.attn_norm(tokens + attn_out)
-        return self.classifier(tokens.reshape(B, -1))
+        return self.classifier(self.ff(tokens.reshape(B, -1)))
 
 
 class AcousticMLP(nn.Module):
