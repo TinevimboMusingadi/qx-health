@@ -30,8 +30,9 @@ function App() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!audioBlob) {
-      setError('Please record an audio sample first.');
+    const isAudioRequired = modelId === 'exp4-encoder-free-unified';
+    if (isAudioRequired && !audioBlob) {
+      setError('Please record an audio sample first for the unified model.');
       return;
     }
     if (formData.age === '') {
@@ -46,7 +47,9 @@ function App() {
 
     try {
       const submitData = new FormData();
-      submitData.append('audio', audioBlob, 'recording.wav');
+      if (audioBlob) {
+        submitData.append('audio', audioBlob, 'recording.wav');
+      }
       submitData.append('model_id', modelId);
       
       // Append all 9 features precisely
@@ -109,7 +112,6 @@ function App() {
               >
                 <option value="exp4-encoder-free-unified">Exp 4: Encoder-Free Unified (Best Performance)</option>
                 <option value="exp1-tabular-attention">Exp 1: Tabular Attention (Clinical Only)</option>
-                <option value="exp2-acoustic-both">Exp 2: Acoustic Dual-Stream</option>
               </select>
             </div>
           </div>
@@ -118,18 +120,20 @@ function App() {
             <DataForm formData={formData} setFormData={setFormData} />
           </div>
 
-          <div className="card">
-            <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>3. Respiratory Audio</h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-              Please record up to 5 seconds of the patient coughing.
-            </p>
-            <AudioRecorder onAudioReady={handleAudioReady} />
-          </div>
+          {modelId === 'exp4-encoder-free-unified' && (
+            <div className="card">
+              <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>3. Respiratory Audio</h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+                Please record up to 5 seconds of the patient coughing.
+              </p>
+              <AudioRecorder onAudioReady={handleAudioReady} />
+            </div>
+          )}
 
           <button 
             type="submit" 
             className="btn btn-primary" 
-            disabled={isLoading || !audioBlob}
+            disabled={isLoading || (modelId === 'exp4-encoder-free-unified' && !audioBlob)}
             style={{ marginBottom: '2rem' }}
           >
             {isLoading ? 'Analyzing Patient Data...' : 'Run Diagnostics'}
